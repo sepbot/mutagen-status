@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"github.com/mutagen-io/mutagen/cmd/external"
 	"github.com/mutagen-io/mutagen/cmd/mutagen/daemon"
@@ -75,12 +76,26 @@ func run() (string, int, error) {
 }
 
 func main() {
+	var quiet bool
+	var template string
+
+	flag.BoolVar(&quiet, "quiet", false, "don't produce any output if healthy")
+	flag.StringVar(
+		&template, "template", "%v",
+		"template the output using %v where the regular output should go eg: mutagen:(%v)",
+	)
+
+	flag.Parse()
+
 	out, exitCode, err := run()
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		os.Exit(127)
 	}
 
-	fmt.Print(out)
+	if exitCode != 0 || !quiet {
+		fmt.Print(strings.ReplaceAll(template, "%v", out))
+	}
+
 	os.Exit(exitCode)
 }
