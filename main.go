@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/mutagen-io/mutagen/cmd/external"
 	"github.com/mutagen-io/mutagen/cmd/mutagen/daemon"
 	"github.com/mutagen-io/mutagen/pkg/selection"
 	"github.com/mutagen-io/mutagen/pkg/service/synchronization"
@@ -10,10 +11,14 @@ import (
 	"strings"
 )
 
-func run() (string, bool, error) {
+func init() {
+	external.UsePathBasedLookupForDaemonStart = true
+}
+
+func run() (string, int, error) {
 	gc, err := daemon.Connect(true, false)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to connect to daemon: %v\n", err)
+		return "", 0, fmt.Errorf("failed to connect to daemon: %v\n", err)
 	}
 
 	defer func() {
@@ -31,41 +36,51 @@ func run() (string, bool, error) {
 		},
 	)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to get list of syncs: %v\n", err)
+		return "", 0, fmt.Errorf("failed to get list of syncs: %v\n", err)
 	}
 
 	if err := resp.EnsureValid(); err != nil {
-		return "", false, fmt.Errorf("list response was not valid: %v\n", err)
+		return "", 0, fmt.Errorf("list response was not valid: %v\n", err)
 	}
 
 	states := resp.GetSessionStates()
 
+	exitCode := 0
 	output := make([]string, len(states))
 	for i, state := range states {
 		conflicts := len(state.GetConflicts())
-		healthy := conflicts == 0 && isHealthy(state.GetStatus())
+		health := isHealthy(state.GetStatus())
 
-		if healthy {
-			output[i] = "🟢"
-		} else {
-			output[i] = fmt.Sprintf("🔴(%v)", conflicts)
+		switch health {
+		case StatusConnecting:
+			output[i] = "\U0001F7E1"
+			exitCode += 1
+		case StatusInProgress:
+			output[i] = "\U0001F535"
+		case StatusHealthy:
+			output[i] = "\U0001F7E2"
+		case StatusNotHealthy:
+			fallthrough
+		default:
+			exitCode += 1
+			output[i] = "\U0001F534"
+		}
+
+		if conflicts > 0 {
+			output[i] = output[i] + fmt.Sprintf("(%v)", conflicts)
 		}
 	}
 
-	return strings.Join(output, " "), true, nil
+	return strings.Join(output, " "), exitCode, nil
 }
 
 func main() {
-	out, healthy, err := run()
+	out, exitCode, err := run()
 	if err != nil {
 		fmt.Printf("%v\n", err)
-		os.Exit(1)
+		os.Exit(127)
 	}
 
 	fmt.Print(out)
-	if healthy {
-		os.Exit(0)
-	} else {
-		os.Exit(2)
-	}
+	os.Exit(exitCode)
 }
