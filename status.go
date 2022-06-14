@@ -13,37 +13,42 @@ const (
 	StatusNotHealthy
 )
 
-func isHealthy(status synchronization.Status) Status {
-	switch status {
+func getHealth(state *synchronization.State) (Status, int) {
+	conflicts := len(state.GetConflicts())
+	if conflicts > 0 {
+		return StatusNotHealthy, conflicts
+	}
+
+	switch state.GetStatus() {
 	case synchronization.Status_Disconnected:
-		return StatusNotHealthy
+		return StatusNotHealthy, conflicts
 	case synchronization.Status_HaltedOnRootEmptied:
-		return StatusNotHealthy
+		return StatusNotHealthy, conflicts
 	case synchronization.Status_HaltedOnRootDeletion:
-		return StatusNotHealthy
+		return StatusNotHealthy, conflicts
 	case synchronization.Status_HaltedOnRootTypeChange:
-		return StatusNotHealthy
+		return StatusNotHealthy, conflicts
 	case synchronization.Status_ConnectingAlpha:
-		return StatusConnecting
+		return StatusConnecting, conflicts
 	case synchronization.Status_ConnectingBeta:
-		return StatusConnecting
+		return StatusConnecting, conflicts
 	case synchronization.Status_Watching:
-		return StatusHealthy
+		return StatusHealthy, conflicts
 	case synchronization.Status_Scanning:
-		return StatusInProgress
+		return StatusInProgress, conflicts
 	case synchronization.Status_WaitingForRescan:
-		return StatusConnecting
+		return StatusConnecting, conflicts
 	case synchronization.Status_Reconciling:
-		return StatusInProgress
+		return StatusInProgress, conflicts
 	case synchronization.Status_StagingAlpha:
-		return StatusInProgress
+		return StatusInProgress, conflicts
 	case synchronization.Status_StagingBeta:
-		return StatusInProgress
+		return StatusInProgress, conflicts
 	case synchronization.Status_Transitioning:
-		return StatusInProgress
+		return StatusInProgress, conflicts
 	case synchronization.Status_Saving:
-		return StatusInProgress
+		return StatusInProgress, conflicts
 	default:
-		return StatusNotHealthy
+		return StatusNotHealthy, conflicts
 	}
 }

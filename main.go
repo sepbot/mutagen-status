@@ -49,8 +49,12 @@ func run() (string, int, error) {
 	exitCode := 0
 	output := make([]string, len(states))
 	for i, state := range states {
-		conflicts := len(state.GetConflicts())
-		health := isHealthy(state.GetStatus())
+		health, conflicts := getHealth(state)
+
+		// conflicts will override
+		if conflicts > 0 {
+			health = StatusNotHealthy
+		}
 
 		switch health {
 		case StatusConnecting:
@@ -68,7 +72,7 @@ func run() (string, int, error) {
 		}
 
 		if conflicts > 0 {
-			output[i] = output[i] + fmt.Sprintf("(%v)", conflicts)
+			output[i] = output[i] + fmt.Sprintf("%v", conflicts)
 		}
 	}
 
